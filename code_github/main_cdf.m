@@ -152,7 +152,45 @@ tau = marcumqTable(ibeta, 2)^2 / (2*lambda_UD);
 fprintf('beta = %f, tau = %f dB \n', beta, pow2db(tau));    
 
 filename = sprintf('gamma_UD_%d.mat', ibeta);
-load(filename);
+try
+    load(filename);
+catch
+    P = [beta 1-beta; beta 1-beta];
+    mc = dtmc(P); S = simulate(mc, trials-1).'-1;
+    % ---------------------------------------------------------------------
+    % Execute for new nodes' locations or K factor
+    % ---------------------------------------------------------------------
+    gamma_UD = [];
+
+    [S_sort, I_sort] = sort(S, 'descend');
+    no_state_1 = find(S_sort, 1, 'last');
+
+    % Sampling channel with state 1
+    % ---------------------------------------------------------------------
+    filename = sprintf('gamma_UD_%d.mat', ibeta);
+    try
+        load(filename);
+    catch
+        while(1)
+            sample = ncx2rnd(2, 2*K_UD, [1, trials])/(2*(K_UD+1));
+    
+            good_samples = find(sample > tau/PL_UD);
+            if ~isempty(good_samples)
+                gamma_UD = [gamma_UD, sample(good_samples)];
+            end
+            if length(gamma_UD) >= no_state_1
+                gamma_UD = gamma_UD(1:no_state_1); break;
+            end
+        end
+        gamma_UD = [gamma_UD zeros(1, trials-no_state_1)];
+        
+        % De-sorting
+        gamma_UD = gamma_UD(I_sort);
+    
+        filename = sprintf('gamma_UD_%d.mat', ibeta);
+        save(filename, 'gamma_UD');
+    end
+end
 
 rlfCoeff = db2pow(0); 
 bg_cascaded  = (rlfCoeff^2*PL_UR*PL_RD);
